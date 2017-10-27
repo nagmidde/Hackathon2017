@@ -1,5 +1,5 @@
 {
-  "name": "porfoli-lambda",
+  "name": "porfolio-xignite-invoker",
   "version": "1.0.0",
   "description": "This AWS Lambda function is to get portfolio data and call xignite",
   "author": "Sagar/Nagendra",

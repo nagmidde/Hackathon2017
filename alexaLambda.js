@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 /* eslint-disable  func-names */
 /* eslint quote-props: ["error", "consistent"]*/
 /**
@@ -94,17 +93,3 @@ const handlers = {
         this.emit(':responseReady');
     },
 };
-=======
-var request = require('request');
-
-exports.handler = (event, context, callback) => {
-    // TODO implement
-    callback(null, 'Hello from Lambda');
-    
-    request('http://www.google.com', function (error, response, body) {
-        if (!error && response.statusCode == 200) {
-            console.log(body) // Print the google web page.
-         }
-    });
-};
->>>>>>> da426fe0b1990131b142de2fa3e02f3cd1350415

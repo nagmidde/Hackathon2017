@@ -1,0 +1,32 @@
+{
+  "intents": [
+    {
+      "name": "AMAZON.CancelIntent",
+      "samples": []
+    },
+    {
+      "name": "AMAZON.HelpIntent",
+      "samples": [
+        "how do I use this"
+      ]
+    },
+    {
+      "name": "AMAZON.StopIntent",
+      "samples": []
+    },
+    {
+      "name": "MyBalanceIntent",
+      "samples": [
+        "what is my balance"
+      ],
+      "slots": []
+    },
+    {
+      "name": "MyFutureIntent",
+      "samples": [
+        "tell me how is my future"
+      ],
+      "slots": []
+    }
+  ]
+}

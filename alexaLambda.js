@@ -9,8 +9,11 @@
  **/
 
 'use strict';
+var AWS = require("aws-sdk");
 const Alexa = require('alexa-sdk');
 var https = require('https');
+var fs = require('fs');
+var dynamodb = new AWS.DynamoDB({apiVersion: '2012-08-10'});
 
 //=========================================================================================================================================
 //TODO: The items below this comment need your attention.
@@ -26,28 +29,6 @@ const HELP_MESSAGE = 'You can say what is my portfolio balance?, or how will my 
 const HELP_REPROMPT = 'What can I help you with?';
 const STOP_MESSAGE = 'Goodbye!';
 
-//=========================================================================================================================================
-//TODO: Replace this data with your own.  You can find translations of this data at http://github.com/alexa/skill-sample-node-js-fact/lambda/data
-//=========================================================================================================================================
-const data = [
-    'A year on Mercury is just 88 days long.',
-    'Despite being farther from the Sun, Venus experiences higher temperatures than Mercury.',
-    'Venus rotates counter-clockwise, possibly because of a collision in the past with an asteroid.',
-    'On Mars, the Sun appears about half the size as it does on Earth.',
-    'Earth is the only planet not named after a god.',
-    'Jupiter has the shortest day of all the planets.',
-    'The Milky Way galaxy will collide with the Andromeda Galaxy in about 5 billion years.',
-    'The Sun contains 99.86% of the mass in the Solar System.',
-    'The Sun is an almost perfect sphere.',
-    'A total solar eclipse can happen once every 1 to 2 years. This makes them a rare event.',
-    'Saturn radiates two and a half times more energy into space than it receives from the sun.',
-    'The temperature inside the Sun can reach 15 million degrees Celsius.',
-    'The Moon is moving approximately 3.8 cm away from our planet every year.',
-];
-
-//=========================================================================================================================================
-//Editing anything below this line might break your skill.
-//=========================================================================================================================================
 
 exports.handler = function(event, context, callback) {
     var alexa = Alexa.handler(event, context);
@@ -61,17 +42,20 @@ const handlers = {
         this.emit(':ask', "Welcome to your financial adviser bot, Jarvis. How can I help you?", "Can you say that again?");
     },
     'MyBalanceIntent': function () {
-        getDelayedQuotes().then((resp) => {
-            console.log(resp);
-            var obj = JSON.parse(resp);
-            this.emit(':ask', obj.Message + '<say-as interpret-as="interjection">Oh boy</say-as><break time="1s"/> Anything else I can help you with?', 'Sorry, what was that?');
+       getUserBalance().then((balance) => {
+            this.emit(':ask', 'Your balance is ' + balance.toFixed(2) + ' dollars. Do you have any other questions?', 'Sorry, can you say that again?');
         });
-
     },
-    'MyFutureIntent': function () {
-
-        this.response.speak("");
-        this.emit(':responseReady');
+    'MyForecastIntent': function () {
+       getUserForecast().then((forecast) => {
+            this.emit(':ask', 'Your forecast is ' + forecast.TROW.recommendation + ". Anything else?", 'I did not get that, can you say it again?');
+        });
+    },
+    'MyYesIntent': function () {
+        this.emit(':ask', 'OK! What would you like to know?', 'Sorry, I did not understand. Can you repeat that?');
+    },
+    'MyNoIntent': function () {
+        this.emit(':tell', '<say-as interpret-as="interjection">Alright, fine!</say-as><break time="1s"/>  have a nice day.');
     },
     'AMAZON.HelpIntent': function () {
         const speechOutput = HELP_MESSAGE;
@@ -87,20 +71,103 @@ const handlers = {
     'AMAZON.StopIntent': function () {
         this.response.speak(STOP_MESSAGE);
         this.emit(':responseReady');
-    },
+    }
 };
 
-
-
-var delayedquotes = '';
-var getDelayedQuotes = function(){
-    // TODO implement
+var getDelayedQuotes = function(symbol){
     return new Promise((resolve, reject) => {
-        https.get('https://globalquotes.xignite.com/v3/xGlobalQuotes.json/GetGlobalDelayedQuote?IdentifierType=Symbol&Identifier=TROW&_token=AE4A02E0271A4E77B78B314AEE9A132D', function(response){
+        https.get('https://globalquotes.xignite.com/v3/xGlobalQuotes.json/GetGlobalDelayedQuote?IdentifierType=Symbol&_token=AE4A02E0271A4E77B78B314AEE9A132D&Identifier='+ symbol, function(response){
+            response.setEncoding("utf8");
+            response.on("data", function(data){
+                resolve(data);
+            }, function(err){
+                console.log(err);
+                reject(err);
+            });
+        });
+    });
+};
+
+var getForecast = function(symbol){
+    return new Promise((resolve, reject) => {
+        https.get('https://factsetestimates.xignite.com/xFactSetEstimates.json/GetLatestRecommendationSummaries?IdentifierType=Symbol&UpdatedSince=&_token=AE4A02E0271A4E77B78B314AEE9A132D&Identifiers='+ symbol, function(response){
             response.setEncoding("utf8");
             response.on("data", function(data){
                 resolve(data);
             })
+        });
+    });
+};
+
+
+
+AWS.config.update({
+  region: "us-east-1",
+  endpoint: "http://localhost:8000"
+});
+
+
+var getUserBalance = function() {
+    return new Promise((resolve, reject) => {
+        var tableName = "portfolio";
+        var params = {
+         ProjectionExpression: 'symbol, description, quantity, purchdate, purchprice',
+         TableName: 'portfolio'
+        };
+        
+        dynamodb.scan(params, function(err, data) {
+          if (err) {
+            reject(err);
+          } 
+          else{
+                var newBalance = 0.0;
+                var promises = [];
+                data.Items.forEach(function(element, index, array) {
+                    promises.push(getDelayedQuotes(element.symbol.S));
+                });
+                
+                Promise.all(promises).then((balances) => {
+                    data.Items.forEach(function(element, index, array) {
+                        var obj = JSON.parse(balances[index]);
+                        newBalance = newBalance + (obj.Close * element.quantity.N);
+                    });
+                    resolve(newBalance);
+                });
+          }
+        });
+    });
+};
+
+
+var getUserForecast = function() {
+    return new Promise((resolve, reject) => {
+        var tableName = "portfolio";
+        var params = {
+         ProjectionExpression: 'symbol, description, quantity, purchdate, purchprice',
+         TableName: 'portfolio'
+        };
+        
+        dynamodb.scan(params, function(err, data) {
+          if (err) {
+            reject(err);
+          } 
+          else {
+            var forecast = {};
+            var promises = [];
+            data.Items.forEach(function(element, index, array) {
+                promises.push(getForecast(element.symbol.S));
+            });
+            
+            Promise.all(promises).then((resp) => {
+                data.Items.forEach(function(element, index, array) {
+                    var obj = JSON.parse(resp[index]);
+                    forecast[element.symbol.S]= {};
+                    forecast[element.symbol.S].targetPrice= obj[0].RecommendationSummarySet[0].TargetPrice;
+                    forecast[element.symbol.S].recommendation= obj[0].RecommendationSummarySet[0].Recommendation;
+                });
+                resolve(forecast);
+            });
+          }
         });
     });
 };

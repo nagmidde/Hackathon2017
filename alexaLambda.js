@@ -43,12 +43,24 @@ const handlers = {
     },
     'MyBalanceIntent': function () {
        getUserBalance().then((balance) => {
-            this.emit(':ask', 'Your balance is ' + balance.toFixed(2) + ' dollars. Do you have any other questions?', 'Sorry, can you say that again?');
+            this.emit(':ask', 'Your balance is $' + balance.toFixed(2) + '. Do you have any other questions?', 'Sorry, can you say that again?');
         });
     },
     'MyForecastIntent': function () {
        getUserForecast().then((forecast) => {
-            this.emit(':ask', 'Your forecast is ' + forecast.TROW.recommendation + ". Anything else?", 'I did not get that, can you say it again?');
+        var numberOfInvestments = 0;
+        var messageToAppend = "";
+          for(var item in forecast){
+                numberOfInvestments++;
+                var name = forecast[item].name.S;
+                var targetPrice = forecast[item].targetPrice;
+                targetPrice = "$" + parseInt(targetPrice).toFixed(2);
+                var rec = forecast[item].recommendation;
+                console.log(targetPrice);
+                messageToAppend = messageToAppend + "For " + name +", the expected target price over the next 6 to 12 months will be " + targetPrice +". " + recommendation[rec];
+          }
+          var message = "You have " + numberOfInvestments + " investments. " + messageToAppend;
+          this.emit(':ask', message + ". Anything else?", 'I did not get that, can you say it again?');
         });
     },
     'MyYesIntent': function () {
@@ -74,16 +86,27 @@ const handlers = {
     }
 };
 
+
+
+const recommendation = {
+    "Buy": "I recommend that you buy more shares. ",
+    "Overweight": "Things are looking good. You should consider buying more shares. ",
+    "Hold": "I recommend that you hold on to what you have. ",
+    "Underweight": "I am worried about this one. You should think about selling some shares. ",
+    "Sell": "I recommend that you sell your shares. "
+}
+
+
 var getDelayedQuotes = function(symbol){
     return new Promise((resolve, reject) => {
         https.get('https://globalquotes.xignite.com/v3/xGlobalQuotes.json/GetGlobalDelayedQuote?IdentifierType=Symbol&_token=AE4A02E0271A4E77B78B314AEE9A132D&Identifier='+ symbol, function(response){
-            response.setEncoding("utf8");
-            response.on("data", function(data){
-                resolve(data);
-            }, function(err){
-                console.log(err);
-                reject(err);
-            });
+          response.setEncoding("utf8");
+          response.on("data", function(data){
+            resolve(data);
+          }, function(err){
+              console.log(err);
+              reject(err);
+          });
         });
     });
 };
@@ -91,10 +114,10 @@ var getDelayedQuotes = function(symbol){
 var getForecast = function(symbol){
     return new Promise((resolve, reject) => {
         https.get('https://factsetestimates.xignite.com/xFactSetEstimates.json/GetLatestRecommendationSummaries?IdentifierType=Symbol&UpdatedSince=&_token=AE4A02E0271A4E77B78B314AEE9A132D&Identifiers='+ symbol, function(response){
-            response.setEncoding("utf8");
-            response.on("data", function(data){
-                resolve(data);
-            })
+          response.setEncoding("utf8");
+          response.on("data", function(data){
+            resolve(data);
+          })
         });
     });
 };
@@ -162,6 +185,7 @@ var getUserForecast = function() {
                 data.Items.forEach(function(element, index, array) {
                     var obj = JSON.parse(resp[index]);
                     forecast[element.symbol.S]= {};
+                    forecast[element.symbol.S].name = element.description;
                     forecast[element.symbol.S].targetPrice= obj[0].RecommendationSummarySet[0].TargetPrice;
                     forecast[element.symbol.S].recommendation= obj[0].RecommendationSummarySet[0].Recommendation;
                 });

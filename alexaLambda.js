@@ -10,6 +10,7 @@
 
 'use strict';
 const Alexa = require('alexa-sdk');
+var https = require('https');
 
 //=========================================================================================================================================
 //TODO: The items below this comment need your attention.
@@ -60,10 +61,12 @@ const handlers = {
         this.emit(':ask', "Welcome to your financial adviser bot, Jarvis. How can I help you?", "Can you say that again?");
     },
     'MyBalanceIntent': function () {
-        console.log("in forecast function");
- 
-        this.response.speak("");
-        this.emit(':responseReady');
+        getDelayedQuotes().then((resp) => {
+            console.log(resp);
+            var obj = JSON.parse(resp);
+            this.emit(':ask', obj.Message + '<say-as interpret-as="interjection">Oh boy</say-as><break time="1s"/> Anything else I can help you with?', 'Sorry, what was that?');
+        });
+
     },
     'MyFutureIntent': function () {
 
@@ -85,4 +88,19 @@ const handlers = {
         this.response.speak(STOP_MESSAGE);
         this.emit(':responseReady');
     },
+};
+
+
+
+var delayedquotes = '';
+var getDelayedQuotes = function(){
+    // TODO implement
+    return new Promise((resolve, reject) => {
+        https.get('https://globalquotes.xignite.com/v3/xGlobalQuotes.json/GetGlobalDelayedQuote?IdentifierType=Symbol&Identifier=TROW&_token=AE4A02E0271A4E77B78B314AEE9A132D', function(response){
+            response.setEncoding("utf8");
+            response.on("data", function(data){
+                resolve(data);
+            })
+        });
+    });
 };

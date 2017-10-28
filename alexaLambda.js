@@ -25,7 +25,7 @@ const APP_ID = "amzn1.ask.skill.e9e04c5d-8623-424b-8344-3b5ade0ebca0";
 
 const SKILL_NAME = 'Jarvis';
 const GET_FACT_MESSAGE = "Here's your fact: ";
-const HELP_MESSAGE = 'You can say what is my portfolio balance?, or how will my portfolio do in the future?';
+const HELP_MESSAGE = 'You can ask me what is my balance, what\'s my outlook, how a company stock is doing, and what are the best stocks.';
 const HELP_REPROMPT = 'What can I help you with?';
 const STOP_MESSAGE = 'Goodbye!';
 
@@ -63,6 +63,41 @@ const handlers = {
           this.emit(':ask', message + ". Anything else?", 'I did not get that, can you say it again?');
         });
     },
+    
+    'MyStockRecommendationIntent': function () {
+        var value = this.event.request.intent.slots.companyName.value;
+        var symbol = symbols[(value.toLowerCase())];
+        
+        getForecast(symbol).then((forecast) =>{
+            var obj = JSON.parse(forecast)[0];
+            var name = obj.Company.Name;
+            var targetPrice = obj.RecommendationSummarySet[0].TargetPrice;
+            targetPrice = "$" + parseInt(targetPrice).toFixed(2);
+            var rec = obj.RecommendationSummarySet[0].Recommendation;
+            
+            //console.log(name);
+            console.log(obj);
+            //console.log(rec);
+
+            var messageToAppend = "For " + name +", the expected target price over the next 6 to 12 months will be " + targetPrice +". " + recommendation[rec];
+            this.emit(':ask', messageToAppend + ". Anything else I can help you with?", 'Sorry, I did not understand. Can you repeat that?');
+
+        });
+
+    },
+    'MyTopMarketMovers': function () {
+        getTopNMarketMovers(3).then((res) => {//console.log("GOT THE RESULTS" + JSON.stringify(res)); 
+            var outMessage ='Top movers are';
+            res.Movers.forEach ((aMover) => {
+            outMessage = outMessage + aMover.Name + ". The percentage gain went up by " + aMover.PercentChangeFromPreviousClose + "%. The last trading price is $" + (aMover.Last).toFixed(2) +". ";
+            });
+            console.log(outMessage);
+            this.emit(':ask', outMessage + ". Anything else I can help you with?", 'Sorry, I did not understand. Can you repeat that?');
+
+            }).catch((errm) => {
+            return "Sorry couldnt get the movers";
+        });
+    },
     'MyYesIntent': function () {
         this.emit(':ask', 'OK! What would you like to know?', 'Sorry, I did not understand. Can you repeat that?');
     },
@@ -94,6 +129,14 @@ const recommendation = {
     "Hold": "I recommend that you hold on to what you have. ",
     "Underweight": "I am worried about this one. You should think about selling some shares. ",
     "Sell": "I recommend that you sell your shares. "
+}
+
+const symbols = {
+    "tesla": "TSLA",
+    "google": "GOOGL",
+    "amazon": "AMZN",
+    "apple": "APPL",
+    "nike": "NKE"
 }
 
 
@@ -195,3 +238,58 @@ var getUserForecast = function() {
         });
     });
 };
+
+
+
+function promisedGet(urlToGet){
+   return new Promise((resolve, reject) => {
+       var outputData ='';
+console.log("inside promisedGet-" + urlToGet);
+       var aRequest = https.get(urlToGet, function(response){
+        response.setEncoding("utf8");
+        response.on("data", function(dataChunk){
+           //console.log("received a chunk of data :" + dataChunk);
+        outputData += dataChunk;
+        }, function(err){
+console.log("error while getting " + urlToGet);
+           console.log(err);
+           reject(err);
+        });
+
+response.on('end', function() {
+try {
+console.log("received end event :" + outputData);
+                   outputData = JSON.parse(outputData);
+               } catch(e) {
+console.log("error :" + JSON.stringify(e));
+                   reject(e);
+               }
+               resolve(outputData);
+});
+       });
+
+aRequest.on("error", function(err){
+reject(err);
+});
+
+aRequest.end();
+
+   });
+}
+
+
+var getTopNMarketMovers = function(topN){
+var topNumberOfMovers = topN;
+if(!topNumberOfMovers){
+topNumberOfMovers = 5;
+}
+return promisedGet('https://globalquotes.xignite.com/v3/xGlobalQuotes.json/GetTopMarketMovers?MarketMoverType=PercentGainers&NumberOfMarketMovers=' + topNumberOfMovers + '&Exchanges=XNYS,ARCX&_fields=MarketMoverType,NumberOfMarketMovers,Movers,Movers.Outcome,Movers.Symbol,Movers.Name,Movers.Last,Movers.ChangeFromPreviousClose,Movers.PercentChangeFromPreviousClose,Movers.Volume&_token=AE4A02E0271A4E77B78B314AEE9A132D');
+}
+
+
+
+
+
+
+
+

@@ -57,24 +57,17 @@ exports.handler = function(event, context, callback) {
 
 const handlers = {
     'LaunchRequest': function () {
-        this.response.speak("Welcome to your financial adviser bot, Jarvis");
-        this.emit(':responseReady');
+        this.emit(':ask', "Welcome to your financial adviser bot, Jarvis. How can I help you?", "Can you say that again?");
     },
-    'GetNewFactIntent': function () {
-        console.log("in forecast function");
-        const factArr = data;
-        const factIndex = Math.floor(Math.random() * factArr.length);
-        const randomFact = factArr[factIndex];
-        const speechOutput = GET_FACT_MESSAGE + randomFact;
-
-        this.response.cardRenderer(SKILL_NAME, randomFact);
-        this.response.speak(speechOutput);
-        this.emit(':responseReady');
-    },
-    'GetFutureForecast': function () {
+    'MyBalanceIntent': function () {
         console.log("in forecast function");
  
-        this.response.speak("hahahaha");
+        this.response.speak("");
+        this.emit(':responseReady');
+    },
+    'MyFutureIntent': function () {
+
+        this.response.speak("");
         this.emit(':responseReady');
     },
     'AMAZON.HelpIntent': function () {
